@@ -45,7 +45,13 @@ export const Route = createFileRoute('/api/tasks/')({
         const sourceId = url.searchParams.get('sourceId')
         if (sourceId) filter.sourceId = sourceId
 
-        return json({ ok: true, tasks: listTasks(filter) })
+        // TODO: Implement role-based filtering
+        // Filter tasks based on user's bound profiles (Issue #8)
+        // Currently returns all tasks to authenticated users.
+        // Should check user role (super_admin vs regular_admin) and
+        // filter tasks by user's profile bindings.
+        const tasks = listTasks(filter)
+        return json({ ok: true, tasks })
       },
 
       POST: async ({ request }) => {
