@@ -4,9 +4,10 @@
  */
 import { createFileRoute } from '@tanstack/react-router'
 import { json } from '@tanstack/react-start'
-import { isAuthenticated } from '../../../server/auth-middleware'
+import { isAuthenticated, getUserIdFromRequest } from '../../../server/auth-middleware'
 import { requireJsonContentType } from '../../../server/rate-limit'
 import { listTasks, createTask } from '../../../server/task-store'
+import { getUserProfile } from '../../../server/user-profiles'
 import type { TaskColumn, TaskPriority, TaskSourceType } from '../../../types/task'
 
 const VALID_COLUMNS: TaskColumn[] = ['backlog', 'todo', 'in_progress', 'review', 'done']
@@ -45,12 +46,21 @@ export const Route = createFileRoute('/api/tasks/')({
         const sourceId = url.searchParams.get('sourceId')
         if (sourceId) filter.sourceId = sourceId
 
-        // TODO: Implement role-based filtering
-        // Filter tasks based on user's bound profiles (Issue #8)
-        // Currently returns all tasks to authenticated users.
-        // Should check user role (super_admin vs regular_admin) and
-        // filter tasks by user's profile bindings.
-        const tasks = listTasks(filter)
+        // Get all tasks matching the filter
+        let tasks = listTasks(filter)
+
+        // Apply role-based filtering (Issue #8)
+        // Super_admin users see all tasks
+        // Regular_admin users see only their own tasks (based on createdBy field)
+        const userId = getUserIdFromRequest(request)
+        if (userId) {
+          const userProfile = getUserProfile(userId)
+          if (userProfile.role !== 'super_admin') {
+            // Filter to only tasks created by this user
+            tasks = tasks.filter((task) => task.createdBy === userId)
+          }
+        }
+
         return json({ ok: true, tasks })
       },
 
@@ -92,7 +102,10 @@ export const Route = createFileRoute('/api/tasks/')({
         if (typeof body.sourceId === 'string' || body.sourceId === null) {
           input.sourceId = body.sourceId as string | null
         }
-        if (typeof body.createdBy === 'string') input.createdBy = body.createdBy
+
+        // Always set createdBy to the current user (cannot be overridden)
+        const userId = getUserIdFromRequest(request)
+        input.createdBy = userId || 'unknown'
 
         const task = createTask(input)
         return json({ ok: true, task }, { status: 201 })
