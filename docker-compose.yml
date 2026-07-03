@@ -17,6 +17,13 @@
 # Troubleshooting:
 #   - Check logs: docker compose logs hermes-studio
 #   - Check logs: docker compose logs hermes-agent
+#
+# Version Pinning:
+#   By default, builds the latest Hermes Agent from the main branch.
+#   To pin to a specific version (e.g., v0.18.0):
+#     HERMES_AGENT_VERSION=0.18.0 docker compose up
+#   Or set HERMES_AGENT_VERSION in .env:
+#     HERMES_AGENT_VERSION=0.18.0
 
 services:
   # The Hermes AI Agent Gateway
@@ -25,6 +32,8 @@ services:
     build:
       context: .
       dockerfile: docker/agent/Dockerfile
+      args:
+        HERMES_AGENT_VERSION: ${HERMES_AGENT_VERSION:-main}
     env_file:
       - .env
     environment:
